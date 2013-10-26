@@ -90,7 +90,13 @@ int8_t NightLightType;
 byte NightLightSign;
 unsigned int NightLightStep; 
 
-
+// Stores the previous hour to help determine if a brightness change needs to happen
+int brightnessHourPrevious;
+// Settings for automatic brightness
+#define BrighterStart 6
+#define BrighterEnd 21
+#define BrighterBrightness 11
+#define DimmerBrightness 1
 
 // Configuration menu:
 byte menuItem;   //Current position within options menu
@@ -1031,6 +1037,8 @@ void setup() {
 
   DisplayModePhase = 0;
   DisplayModePhaseCount = 0;
+  
+  brightnessHourPrevious = hour();
 
 }
 
@@ -1106,9 +1114,17 @@ void loop() {
     if (UpdateEE)   // Don't need to check this more than 100 times/second.
       EESaveSettings();
 
-
-
-
+    if ((brightnessHourPrevious < BrighterStart) && (hour() >= BrighterStart))
+    {
+      Brightness = BrighterBrightness; // It has just passed the BrighterStart hour, so make things brighter
+      UpdateBrightness = 1;
+    }
+    else if ((brightnessHourPrevious < BrighterEnd) && (hour() >= BrighterEnd))
+    {
+      Brightness = DimmerBrightness; // It has just passed the BrighterEnd hour, so make things dimmer
+      UpdateBrightness = 1;
+    }
+    brightnessHourPrevious = hour();
 
   }
 
