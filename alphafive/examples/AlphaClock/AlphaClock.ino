@@ -66,6 +66,7 @@
 #include <Wire.h>       // For optional RTC module
 #include <DS1307RTC.h>  // For optional RTC module. (This library included with the Arduino Time library)
 #include <EEPROM.h>     // For saving settings 
+#include <math.h>       // Needed for calculating sunrise/sunset
 
 // "Factory" default configuration can be configured here:
 #define a5brightLevelDefault 9 
@@ -92,11 +93,14 @@ unsigned int NightLightStep;
 
 // Stores the previous hour to help determine if a brightness change needs to happen
 int brightnessHourPrevious;
-// Settings for automatic brightness
+// Settings for automatic brightness (someday moved into a menu)
 #define BrighterStart 6
 #define BrighterEnd 21
 #define BrighterBrightness 11
 #define DimmerBrightness 1
+
+// Length of the light fade (seconds)
+#define LightFadeLength 1800
 
 // Configuration menu:
 byte menuItem;   //Current position within options menu
@@ -132,7 +136,7 @@ int8_t numberCharSet;
 
 // Other global variables:
 byte UseRTC;
-unsigned long NextClockUpdate, NextAlarmCheck;
+unsigned long NextClockUpdate, NextAlarmCheck, NextLightUpdate;
 unsigned long milliTemp;
 unsigned int FLWoffset; // Counter variable for FLW (Five Letter Word) display mode
 
@@ -224,7 +228,8 @@ void TurnOffAlarm(void)
     snoozed = 0;
     alarmNow = 0;
     a5noTone();
-
+    a5nightLight(0);
+    
     if (modeShowMenu == 0) 
       DisplayWordSequence(2); // Display: "ALARM OFF", EXCEPT if we are in the menus.
   }
@@ -757,6 +762,15 @@ void ManageAlarm (void) {
       }
     } 
   }
+  if (AlarmTone == 6)   // Light-only 'tone'
+    {
+      if (((SoundSequence == 0) || (milliTemp > NextLightUpdate)) && (SoundSequence < 255))
+      {
+        SoundSequence++;
+        NextLightUpdate = milliTemp + (LightFadeLength * 1000)/255;
+      }
+      a5nightLight(SoundSequence);
+    } 
 }
 
 
@@ -1535,8 +1549,8 @@ void UpdateDisplay (byte forceUpdate) {
       AlarmTone += optionValue;
       optionValue = 0;
       if (AlarmTone < 0)
-        AlarmTone = 5;
-      if (AlarmTone > 5)
+        AlarmTone = 6;
+      if (AlarmTone > 6)
         AlarmTone = 0;
 
       if (AlarmTone == 0) 
@@ -1549,8 +1563,10 @@ void UpdateDisplay (byte forceUpdate) {
         DisplayWord (" HIGH", 500);   
       else if (AlarmTone == 4) 
         DisplayWord ("SIREN", 500);   
-      else 
-        DisplayWord (" TINK", 500);   
+      else if (AlarmTone == 5)
+        DisplayWord (" TINK", 500);
+      else
+        DisplayWord ("LIGHT", 500);
       ExtendTextDisplay = 1;
     }   
     else if (menuItem == SoundTestMenuItem)  // Alarm Test: 3
